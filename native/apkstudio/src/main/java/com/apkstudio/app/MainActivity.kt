@@ -12,14 +12,14 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.*
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
+import android.app.AlertDialog
+import androidx.activity.ComponentActivity
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipInputStream
 
 /** APK Studio screen of Utility Hub: edit APK name/icon, install from ZIP without extracting. */
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
     private var zipUri: Uri? = null
     private val zipEntries = mutableListOf<String>()
     private lateinit var zipText: TextView
@@ -59,10 +59,30 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        supportActionBar?.hide()
+        val crashFile = File(filesDir, "apkstudio_crash.txt")
+        val old = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try { crashFile.writeText(android.util.Log.getStackTraceString(e)) } catch (_: Throwable) {}
+            old?.uncaughtException(t, e)
+        }
         backCb = object : OnBackPressedCallback(false) { override fun handleOnBackPressed() = showHome() }
         onBackPressedDispatcher.addCallback(this, backCb)
-        showHome()
+        try {
+            showHome()
+        } catch (t: Throwable) {
+            showError(android.util.Log.getStackTraceString(t))
+            return
+        }
+        if (crashFile.exists()) {
+            val trace = crashFile.readText()
+            crashFile.delete()
+            showError("Previous crash:\n\n$trace")
+        }
+    }
+
+    private fun showError(trace: String) {
+        val tv = TextView(this).apply { text = trace; textSize = 11f; setTextIsSelectable(true); setPadding(32, 32, 32, 32) }
+        setContentView(ScrollView(this).apply { addView(tv) })
     }
 
     // ---------- screens ----------
