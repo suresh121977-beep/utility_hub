@@ -200,8 +200,21 @@ class MainActivity : ComponentActivity() {
                 val out = File(cacheDir, "edited.apk")
                 ApkEditor.edit(this, getSource(), name, icon, out)
                 runOnUiThread { chooseOutput(out, base) }
-            } catch (t: Throwable) { toast("Edit failed: ${t.message}") }
+            } catch (t: Throwable) {
+                runOnUiThread { showFailure("Edit failed", android.util.Log.getStackTraceString(t)) }
+            }
         }.start()
+    }
+
+    private fun showFailure(title: String, trace: String) {
+        val tv = TextView(this).apply { text = trace; textSize = 11f; setTextIsSelectable(true); setPadding(32, 16, 32, 16) }
+        AlertDialog.Builder(this).setTitle(title).setView(ScrollView(this).apply { addView(tv) })
+            .setPositiveButton("Copy") { _, _ ->
+                val cm = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("error", trace))
+                toast("Copied")
+            }
+            .setNegativeButton("Close", null).show()
     }
 
     private fun chooseOutput(out: File, base: String) {

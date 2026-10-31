@@ -17,18 +17,26 @@ object ApkEditor {
     private const val ID_ROUND_ICON = 0x0101052c
 
     /** Changes the app name and/or icon of [src], re-signs it and writes [out]. */
+    private inline fun <T> stage(name: String, block: () -> T): T =
+        try { block() } catch (e: Throwable) { throw RuntimeException("[$name] ${e}", e) }
+
     fun edit(ctx: Context, src: File, newName: String?, icon: ByteArray?, out: File) {
         val unsigned = File(ctx.cacheDir, "edited-unsigned.apk")
-        val module = ApkModule.loadApkFile(src)
-        val manifest = module.getAndroidManifest()
-        val targets = listOfNotNull(manifest.getApplicationElement(), manifest.getMainActivity())
+        val module = stage("1 load APK") { ApkModule.loadApkFile(src) }
+        val manifest = stage("2 read manifest") { module.getAndroidManifest() }
+        val targets = stage("3 find app element") {
+            listOfNotNull(manifest.getApplicationElement(), manifest.getMainActivity())
+        }
+        if (targets.isEmpty()) throw RuntimeException("[3 find app element] no application element found")
 
-        if (!newName.isNullOrBlank()) {
+        if (!newName.isNullOrBlank()) stage("4 set name") {
             for (el in targets) el.getOrCreateAndroidAttribute("label", ID_LABEL).setValueAsString(newName)
         }
-        if (icon != null) {
+        if (icon != null) stage("5 set icon") {
             val path = "res/apkstudio_icon.png"
-            val entry = module.getTableBlock().pickOne().getOrCreate("", "drawable", "apkstudio_icon")
+            val pkg = module.getTableBlock().pickOne()
+                ?: throw RuntimeException("APK has no resource table")
+            val entry = pkg.getOrCreate("", "drawable", "apkstudio_icon")
             entry.setValueAsString(path)
             module.add(ByteInputSource(icon, path))
             val id = entry.getResourceId()
@@ -37,8 +45,8 @@ object ApkEditor {
                 el.searchAttributeByResourceId(ID_ROUND_ICON)?.setTypeAndData(ValueType.REFERENCE, id)
             }
         }
-        module.writeApk(unsigned)
-        sign(ctx, unsigned, out)
+        stage("6 write APK") { module.writeApk(unsigned) }
+        stage("7 sign APK") { sign(ctx, unsigned, out) }
         unsigned.delete()
     }
 
