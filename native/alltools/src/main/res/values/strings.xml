@@ -1,0 +1,4 @@
+<resources>
+    <string name="alltools_name">All-in-One Tools</string>
+    <string name="service_desc">Powers two tools from the All-in-One Tools app: a floating Magnify button (zoom the screen) and a floating Copy button (reads on-screen text so you can copy it). Each tool can be switched on or off inside the app. Nothing leaves your phone.</string>
+</resources>

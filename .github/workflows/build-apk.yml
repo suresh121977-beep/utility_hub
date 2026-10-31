@@ -1,0 +1,42 @@
+name: Build Utility Hub APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create Android scaffold
+        run: |
+          if [ ! -d android ]; then
+            flutter create --platforms=android --org com.utilityhub --project-name project_vault .
+          fi
+      - name: Generate APK Studio signing key
+        run: |
+          mkdir -p native/apkstudio/src/main/assets
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 10000 -subj "/CN=APKStudio"
+          openssl pkcs8 -topk8 -nocrypt -in key.pem -outform DER -out native/apkstudio/src/main/assets/key.pk8
+          openssl x509 -in cert.pem -outform DER -out native/apkstudio/src/main/assets/cert.der
+          rm key.pem cert.pem
+      - name: Merge native modules into the Android project
+        run: python3 tools/patch_android.py
+      - run: flutter pub get
+      - name: Patch Flutter plugins to compileSdk 36
+        run: |
+          find "${PUB_CACHE:-$HOME/.pub-cache}" -path '*/android/build.gradle*' -exec sed -i -E 's/compileSdk(Version)?[ =]+[0-9]+/compileSdk 36/' {} +
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Utility-Hub-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

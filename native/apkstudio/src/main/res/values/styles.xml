@@ -1,0 +1,3 @@
+<resources>
+    <style name="ApkStudioTheme" parent="Theme.AppCompat.Light.DarkActionBar" />
+</resources>

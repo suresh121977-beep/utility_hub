@@ -1,0 +1,12 @@
+/android/
+/build/
+.dart_tool/
+.flutter-plugins*
+.packages
+.metadata
+*.iml
+.idea/
+test/
+analysis_options.yaml
+native/apkstudio/src/main/assets/key.pk8
+native/apkstudio/src/main/assets/cert.der
